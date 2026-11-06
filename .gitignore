@@ -1,0 +1,19 @@
+# Estado y resultados generados por el prototipo
+prototipo/datos/
+prototipo/*.db
+prototipo/*.log
+
+# Dependencias y caché de Python
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Modelos, motores y fotos locales (pueden ocupar varios GB)
+prototipo/modelos/*
+!prototipo/modelos/LEEME.txt
+prototipo/motores/*
+!prototipo/motores/LEEME.txt
+prototipo/fotos/*
+!prototipo/fotos/LEEME.txt
+prototipo/fotos_resultado/

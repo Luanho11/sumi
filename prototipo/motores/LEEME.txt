@@ -1,0 +1,1 @@
+instalar_ia.bat deja aqui llama.cpp. Si prefieres hacerlo a mano, descomprime aqui el .zip "win-cpu-x64" de llama.cpp.

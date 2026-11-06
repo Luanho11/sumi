@@ -1,0 +1,1 @@
+instalar_ia.bat descarga aqui los modelos de IA (archivos .gguf). Solo hacen falta en el equipo coordinador: XARA los copia a los demas cuando los necesitan.

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XARA · Panel</title>
+<style>
+  :root { --fg:#111; --muted:#666; --line:#ddd; --bg:#fff; --card:#fafafa; --ok:#2e7d32; --warn:#b26a00; --bad:#c62828; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Arial, Helvetica, sans-serif; color:var(--fg); background:var(--bg); }
+  header { background:#000; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { margin:0; font-size:20px; letter-spacing:1px; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  h2 { font-size:16px; margin:22px 0 10px; border-bottom:2px solid #000; padding-bottom:4px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .card h3 { margin:0 0 6px; font-size:15px; }
+  .small { color:var(--muted); font-size:12px; }
+  .bar { height:8px; background:#e5e5e5; border-radius:4px; overflow:hidden; margin:3px 0 8px; }
+  .bar > div { height:100%; background:#000; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; }
+  button { background:#000; color:#fff; border:0; border-radius:6px; padding:9px 14px; font-weight:bold; cursor:pointer; }
+  button:disabled { background:#999; cursor:default; }
+  select { padding:7px; border-radius:6px; border:1px solid var(--line); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:#000; color:#fff; text-align:left; padding:7px; }
+  td { border-bottom:1px solid var(--line); padding:7px; vertical-align:top; }
+  .v-Favorable { color:var(--ok); font-weight:bold; } .v-Desfavorable, .v-Inválido { color:var(--bad); font-weight:bold; }
+  .v-Técnicamente, .v-No { color:var(--warn); font-weight:bold; }
+  pre { background:#f4f4f4; padding:10px; border-radius:6px; white-space:pre-wrap; font-size:12px; max-height:360px; overflow:auto; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  a { color:#000; }
+</style>
+</head>
+<body>
+<header><h1>XARA</h1><span class="small" style="color:#ccc" id="ver"></span></header>
+<main>
+  <h2>Equipos conectados</h2>
+  <div class="grid" id="nodos"><p class="small">Esperando equipos…</p></div>
+
+  <h2>Pruebas automáticas</h2>
+  <div class="grid">
+    <div class="card"><h3>P1 · Comunicación</h3><p class="small">Comprueba que los equipos se pasan trabajo y vuelven a responder.</p>
+      <button data-p="P1">Iniciar</button></div>
+    <div class="card"><h3>P2 · Repartir tareas</h3><p class="small">Mide cuánto más rápido terminan juntos un lote de trabajo que cada uno solo.</p>
+      <button data-p="P2">Iniciar</button></div>
+    <div class="card"><h3>P3 · IA repartida</h3><p class="small">Reparte un modelo de IA entre los equipos y lo compara con el coordinador solo.</p>
+      <div class="row"><select class="modelo" name="modelo"></select><button data-p="P3">Iniciar</button></div></div>
+    <div class="card"><h3>P3b · IA que no cabe en un equipo</h3><p class="small">Reparte un modelo más grande que la memoria libre del coordinador para comprobar que juntos sí lo pueden usar.</p>
+      <div class="row"><select class="modelo" name="modelo" id="modelo-p3b"></select><button data-p="P3b">Iniciar</button></div></div>
+    <div class="card"><h3>P4 · IA por lotes</h3><p class="small">Cada equipo responde preguntas con su propio modelo, a la vez.</p>
+      <div class="row"><select class="modelo" name="modelo"></select><button data-p="P4">Iniciar</button></div></div>
+    <div class="card"><h3>P5 · Fotos por lotes</h3><p class="small">Prepara fotos para una tienda en línea (tamaño web, marca de agua, WebP y miniatura) con un equipo y con todos.</p>
+      <div class="row"><select name="origen" id="origen-p5"></select><button data-p="P5">Iniciar</button></div></div>
+  </div>
+  <p class="small" id="aviso"></p>
+
+  <h2>Prueba en curso</h2>
+  <div class="card"><div id="curso" class="small">Ninguna.</div><pre id="pasos" style="display:none"></pre></div>
+
+  <h2>Resultados registrados</h2>
+  <table><thead><tr><th>Fecha</th><th>Prueba</th><th>Estado</th><th>Veredicto</th><th>Informe</th></tr></thead>
+    <tbody id="exps"></tbody></table>
+  <pre id="informe" style="display:none"></pre>
+
+  <h2>Descargar datos (Excel / CSV)</h2>
+  <div class="row">
+    <a href="/api/csv/experimentos">Pruebas</a> · <a href="/api/csv/ia">Resultados IA</a> · <a href="/api/csv/lotes">Lotes</a> ·
+    <a href="/api/csv/tareas">Tareas</a> · <a href="/api/csv/metricas">Métricas por segundo</a> · <a href="/api/csv/nodos">Equipos</a>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const pct = (a, b) => b ? Math.max(0, Math.min(100, 100 * a / b)) : 0;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let modelosPrev = '', fotosPrev = null;
+
+async function estado() {
+  try {
+    const r = await (await fetch('/api/estado')).json();
+    $('#ver').textContent = 'versión ' + r.version;
+    $('#nodos').innerHTML = r.nodos.map(n => {
+      const m = n.m || {}, usada = m.ram_usada_gb ?? 0, total = n.ram_total_gb || 1;
+      return `<div class="card"><h3><span class="dot" style="background:${n.activo ? 'var(--ok)' : 'var(--bad)'}"></span>${esc(n.host)}</h3>
+        <div class="small">${esc(n.ip)} · ${esc(n.so)}</div><div class="small">${esc(n.cpu)}</div>
+        <div class="small" style="margin-top:6px">CPU ${m.cpu_pct ?? '–'} %</div><div class="bar"><div style="width:${m.cpu_pct || 0}%"></div></div>
+        <div class="small">RAM ${usada} de ${total} GB</div><div class="bar"><div style="width:${pct(usada, total)}%"></div></div>
+        <div class="small">Latencia ${m.latencia_ms ?? '–'} ms · ${m.en_bateria ? '<b style="color:var(--bad)">en batería</b>' : 'enchufado'}</div>
+        <div class="small">llama.cpp: ${n.motores && n.motores.rpc ? 'sí' : 'no'}</div></div>`;
+    }).join('') || '<p class="small">Esperando equipos…</p>';
+    const ms = Object.entries(r.modelos);
+    const html = ms.map(([k, v]) => `<option value="${esc(k)}">${esc(k)} (${v} GB)</option>`).join('') || '<option value="">sin modelos</option>';
+    if (html !== modelosPrev) {
+      document.querySelectorAll('.modelo').forEach(s => s.innerHTML = html);
+      // P3b busca un modelo que no quepa en un solo equipo: se preselecciona el más grande
+      if (ms.length) $('#modelo-p3b').value = ms.reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+      modelosPrev = html;
+    }
+    if (r.fotos !== fotosPrev) {
+      $('#origen-p5').innerHTML = '<option value="prueba">120 fotos de prueba</option>'
+        + (r.fotos ? `<option value="carpeta">Carpeta fotos (${r.fotos})</option>` : '');
+      fotosPrev = r.fotos;
+    }
+    const enCurso = r.prueba && r.prueba.estado === 'en curso';
+    document.querySelectorAll('button[data-p]').forEach(b => b.disabled = enCurso);
+    $('#aviso').textContent = r.motores.bench ? '' : 'Para P3, P3b y P4 copia llama.cpp en la carpeta "motores" y un modelo .gguf en "modelos" de este equipo.';
+    if (r.prueba) {
+      $('#curso').innerHTML = `<b>${esc(r.prueba.prueba)}</b> · ${esc(r.prueba.estado)} · ${esc(r.prueba.paso)}`;
+      $('#pasos').style.display = 'block'; $('#pasos').textContent = r.pasos.join('\n');
+    }
+  } catch (e) { $('#ver').textContent = 'sin conexión con el coordinador'; }
+}
+
+async function experimentos() {
+  const r = await (await fetch('/api/experimentos')).json();
+  $('#exps').innerHTML = r.map(e => `<tr><td>${new Date(e.inicio * 1000).toLocaleString()}</td><td>${esc(e.prueba)}</td>
+    <td>${esc(e.estado)}</td><td class="v-${esc((e.veredicto || '').split(' ')[0])}">${esc(e.veredicto || '–')}</td>
+    <td><a href="#" data-i="${esc(e.id)}">ver</a></td></tr>`).join('');
+}
+
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('button[data-p]');
+  if (b) {
+    const sel = b.parentElement.querySelector('select');
+    const opciones = sel ? { [sel.name]: sel.value } : {};
+    const r = await (await fetch('/api/prueba', { method: 'POST', body: JSON.stringify({ prueba: b.dataset.p, opciones }) })).json();
+    if (r.error) alert(r.error);
+    estado();
+  }
+  const a = ev.target.closest('a[data-i]');
+  if (a) {
+    ev.preventDefault();
+    const t = await (await fetch('/api/informe/' + a.dataset.i)).text();
+    $('#informe').style.display = 'block'; $('#informe').textContent = t; $('#informe').scrollIntoView();
+  }
+});
+estado(); experimentos();
+setInterval(estado, 2000); setInterval(experimentos, 5000);
+</script>
+</body>
+</html>
